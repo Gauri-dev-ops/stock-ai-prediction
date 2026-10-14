@@ -2495,99 +2495,149 @@ with risk_col:
 
 
 # ============================================================
-# BROKER CONNECTION / ORDER WORKFLOW READINESS
+# BROKER CONNECTION / ORDER WORKFLOW
 # ============================================================
 
 st.markdown('<div id="broker-connection"></div>', unsafe_allow_html=True)
+st.subheader("🔗 Broker workspace")
+st.caption(
+    "Review a potential order and open your broker’s official developer portal. "
+    "This workspace does not connect to a trading account or place live orders."
+)
 
-st.subheader("🔗 Broker Connection")
+st.markdown(
+    f"""
+    <style>
+      .broker-eyebrow {{ color: {NAV_ACCENT}; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; margin-bottom: 7px; }}
+      .broker-title {{ color: {TEXT}; font-size: 21px; font-weight: 750; margin-bottom: 5px; }}
+      .broker-muted {{ color: {SECONDARY_TEXT}; font-size: 13px; line-height: 1.55; }}
+      .broker-pill {{ display: inline-block; padding: 5px 9px; border-radius: 999px; border: 1px solid {BORDER}; color: {TEXT}; font-size: 11px; font-weight: 650; margin: 8px 0 14px 0; }}
+      .broker-summary {{ background: {HERO_BG_2}; border: 1px solid {BORDER}; border-radius: 12px; padding: 15px 16px; margin: 12px 0; }}
+      .broker-summary-label {{ color: {SECONDARY_TEXT}; font-size: 12px; }}
+      .broker-summary-value {{ color: {TEXT}; font-size: 22px; font-weight: 750; margin-top: 3px; }}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-broker_col1, broker_col2 = st.columns([1, 1])
+broker_col1, broker_col2 = st.columns([0.92, 1.08], gap="large")
 
 with broker_col1:
-    broker = st.selectbox(
-        "Select Broker",
-        ["Zerodha", "Upstox", "Other / Future Integration"],
-        key="broker_provider"
-    )
-
-    if broker == "Zerodha":
-        st.info(
-            "Zerodha can be integrated through Kite Connect. A production integration should use OAuth/API authentication on a secure backend."
-        )
-        st.link_button(
-            "Open Zerodha Kite Connect",
-            "https://kite.trade/"
+    with st.container(border=True):
+        st.markdown('<div class="broker-eyebrow">01 · ACCOUNT PROVIDER</div>', unsafe_allow_html=True)
+        st.markdown('<div class="broker-title">Broker connection</div>', unsafe_allow_html=True)
+        st.markdown('<div class="broker-muted">Choose a provider to view its official API resources and integration status.</div>', unsafe_allow_html=True)
+        broker = st.selectbox(
+            "Broker provider",
+            ["Zerodha", "Upstox", "Other / Future Integration"],
+            key="broker_provider",
+            label_visibility="collapsed",
         )
 
-    elif broker == "Upstox":
-        st.info(
-            "Upstox provides developer APIs for authentication and order workflows. Live order placement requires the user's authorized access token."
-        )
-        st.link_button(
-            "Open Upstox Developer API",
-            "https://upstox.com/developer/api-documentation/"
-        )
+        if broker == "Zerodha":
+            broker_url = "https://kite.trade/"
+            broker_docs = "Kite Connect"
+            broker_description = "Review Zerodha’s official Kite Connect platform for API access, authentication requirements and developer documentation."
+            broker_status = "API AVAILABLE · NOT CONNECTED"
+        elif broker == "Upstox":
+            broker_url = "https://upstox.com/developer/api-documentation/"
+            broker_docs = "Upstox Developer API"
+            broker_description = "Review Upstox’s official documentation for OAuth authentication, market data and order workflow requirements."
+            broker_status = "API AVAILABLE · NOT CONNECTED"
+        else:
+            broker_url = None
+            broker_docs = "Broker integration"
+            broker_description = "Add a provider only after reviewing its official API, authentication flow, permissions and order rules."
+            broker_status = "NOT CONFIGURED"
 
-    else:
-        st.info(
-            "Additional brokers can be added through their official API/OAuth integrations without changing the StockAI signal engine."
+        st.markdown(f'<div class="broker-pill">● {broker_status}</div>', unsafe_allow_html=True)
+        st.write(broker_description)
+        if broker_url:
+            st.link_button(f"Open {broker_docs} ↗", broker_url, use_container_width=True, type="primary")
+        st.divider()
+        st.markdown("**Security checklist**")
+        st.markdown(
+            "- Authenticate through the broker’s official flow.\n"
+            "- Keep API secrets and access tokens on a secure backend.\n"
+            "- Request only the permissions the app needs.\n"
+            "- Require explicit confirmation before any live order is submitted."
         )
 
 with broker_col2:
-    st.markdown("### 🧾 Order Review")
+    with st.container(border=True):
+        st.markdown('<div class="broker-eyebrow">02 · TRADE DETAILS</div>', unsafe_allow_html=True)
+        st.markdown('<div class="broker-title">Order ticket</div>', unsafe_allow_html=True)
+        st.markdown('<div class="broker-muted">Build a review-only ticket using the selected stock and latest downloaded closing price.</div>', unsafe_allow_html=True)
 
-    order_quantity = st.number_input(
-        "Quantity",
-        min_value=1,
-        value=1,
-        step=1,
-        key="order_quantity"
-    )
+        order_side = st.radio("Transaction", ["BUY", "SELL"], horizontal=True, key="order_side")
+        order_col1, order_col2 = st.columns(2)
+        with order_col1:
+            order_quantity = st.number_input("Quantity (shares)", min_value=1, value=1, step=1, key="order_quantity")
+        with order_col2:
+            order_type = st.selectbox("Order type", ["MARKET", "LIMIT"], key="order_type")
 
-    order_type = st.selectbox(
-        "Order Type",
-        ["MARKET", "LIMIT"],
-        key="order_type"
-    )
-
-    if order_type == "LIMIT":
-        limit_price = st.number_input(
-            "Limit Price (₹)",
-            min_value=0.01,
-            value=float(round(latest_price, 2)),
-            step=0.05,
-            key="limit_price"
+        product_type = st.selectbox(
+            "Product type",
+            ["CNC · Delivery", "MIS · Intraday (broker rules apply)"],
+            key="order_product_type",
         )
-    else:
-        limit_price = 0.0
 
-    st.write(
-        f"**Stock:** {company_name}  "
-        f"  \n**Symbol:** {stock}  "
-        f"  \n**Indicative value:** ₹{latest_price * order_quantity:,.2f}"
-    )
+        if order_type == "LIMIT":
+            limit_price = st.number_input(
+                "Limit price (₹)", min_value=0.01,
+                value=max(0.01, float(round(latest_price, 2))),
+                step=0.05, format="%.2f", key="limit_price",
+            )
+            estimated_unit_price = float(limit_price)
+        else:
+            limit_price = 0.0
+            estimated_unit_price = float(latest_price)
+            st.caption("Market orders may fill at a price different from the displayed reference price.")
 
-    if st.button("🔐 Prepare Broker Order", use_container_width=True):
-        st.session_state.order_review_ready = True
-
-    if st.session_state.get("order_review_ready", False):
-        st.warning(
-            "Order prepared for review only. A production broker connection must authenticate the user and require explicit confirmation before sending an order."
+        estimated_value = estimated_unit_price * int(order_quantity)
+        summary_col1, summary_col2 = st.columns(2)
+        summary_col1.metric("Selected stock", company_name)
+        summary_col2.metric("Reference price", f"₹{latest_price:,.2f}")
+        st.markdown(
+            f'<div class="broker-summary"><div class="broker-summary-label">Estimated order value · before charges</div><div class="broker-summary-value">₹{estimated_value:,.2f}</div><div class="broker-muted">{order_side} · {stock} · {int(order_quantity):,} share(s)</div></div>',
+            unsafe_allow_html=True,
         )
-        import json as _json
-        order_payload = {
-            "symbol": stock,
-            "quantity": int(order_quantity),
-            "order_type": order_type,
-            "price": float(limit_price),
-            "decision_engine": signal_label,
-            "decision_score": round(signal_score, 2)
-        }
-        st.code(
-            _json.dumps(order_payload, indent=2),
-            language="json"
+        st.caption("Estimate only. Taxes, brokerage, slippage, margin rules and actual execution price are not included.")
+
+        review_acknowledged = st.checkbox(
+            "I understand this creates a preview only and will not submit a live order.",
+            key="order_preview_acknowledged",
         )
+        if st.button("Prepare order preview", use_container_width=True, type="primary", disabled=not review_acknowledged, key="prepare_broker_order"):
+            st.session_state.order_review_payload = {
+                "broker": broker,
+                "exchange": "NSE",
+                "symbol": stock,
+                "company": company_name,
+                "transaction_type": order_side,
+                "quantity": int(order_quantity),
+                "product_type": product_type,
+                "order_type": order_type,
+                "price": float(limit_price),
+                "reference_market_price": float(latest_price),
+                "estimated_value_before_charges": round(float(estimated_value), 2),
+                "forecast_signal_for_context_only": signal_label,
+                "decision_score_for_context_only": round(float(signal_score), 2),
+                "live_submission": False,
+            }
+
+        if st.session_state.get("order_review_payload"):
+            import json as _json
+            st.divider()
+            st.markdown("**Prepared preview**")
+            st.success("Preview created. No broker account was accessed and no order was sent.")
+            st.code(_json.dumps(st.session_state.order_review_payload, indent=2), language="json")
+
+st.info(
+    "Live trading is not enabled in this version. A real connection requires broker-approved authentication, "
+    "server-side credential handling, broker-specific instrument identifiers and explicit order submission controls.",
+    icon="🔒",
+)
 
 
 # ============================================================
